@@ -29,7 +29,7 @@ public final class MonacoEditorContextKey<T: MonacoEditorContextKeyValue> {
   return editor.getContextKey('\(key)');
 })();
 """
-    if #available(iOS 14.0, *) {
+      if #available(macOS 11.0, iOS 14.0, *) {
       webView.evaluateJavaScript(javascript, in: nil, in: WKContentWorld.page) {
         switch $0 {
         case .success(let result): completionHandler(.success(result as? T))
@@ -60,7 +60,7 @@ public final class MonacoEditorContextKey<T: MonacoEditorContextKeyValue> {
   return true;
 })();
 """
-    if #available(iOS 14.0, *) {
+    if #available(macOS 11.0, iOS 14.0, *) {
       webView.evaluateJavaScript(javascript, in: nil, in: WKContentWorld.page)
     } else {
       webView.evaluateJavaScript(javascript);
@@ -79,7 +79,7 @@ public final class MonacoEditorContextKey<T: MonacoEditorContextKeyValue> {
   return true;
 })();
 """
-    if #available(iOS 14.0, *) {
+    if #available(macOS 11.0, iOS 14.0, *) {
       webView.evaluateJavaScript(javascript, in: nil, in: WKContentWorld.page)
     } else {
       webView.evaluateJavaScript(javascript);

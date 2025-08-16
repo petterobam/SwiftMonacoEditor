@@ -20,87 +20,161 @@
 
 import Combine
 import SwiftUI
+import WebKit
 
-public struct MonacoEditor: UIViewRepresentable {
-  private let actions: [MonacoEditorAction]?
-  private let commands: [MonacoEditorCommand]?
-  private let contentChanged: ((String) -> Void)?
-  private let scriptMessageHandlers: [MonacoEditorScriptMessageHandler]?
-
-  @ObservedObject private var configuration: MonacoEditorConfiguration
-  @Binding private var text: String
-
-  public init(
-    text: Binding<String>,
-    configuration: MonacoEditorConfiguration,
-    commands: [MonacoEditorCommand]? = nil,
-    actions: [MonacoEditorAction]? = nil,
-    scriptMessageHandlers: [MonacoEditorScriptMessageHandler]? = nil,
-    contentChanged: ((String) -> Void)? = nil
-  ) {
-    self._text = text
-    self.configuration = configuration
-    self.contentChanged = contentChanged
-    self.commands = commands
-    self.actions = actions
-    self.scriptMessageHandlers = scriptMessageHandlers
-  }
-
-  public func makeCoordinator() -> Coordinator {
-    let coordinator = Coordinator(commands: commands, actions: actions)
-    return coordinator
-  }
-
-  public func makeUIView(context: Context) -> MonacoEditorView {
-    let view = MonacoEditorView(
-      frame: .zero,
-      text: text,
-      configuration: configuration,
-      scriptMessageHandlers: scriptMessageHandlers
-    )
-    view.ready = context.coordinator.configureEditor
-    view.contentChanged = contentChanged
-    view.text = text
-    return view
-  }
-
-  public func updateUIView(_ uiView: MonacoEditorView, context: Context) {
-    uiView.updateConfiguration()
-    uiView.text = text
-  }
-}
-
-extension MonacoEditor {
-  public final class Coordinator {
+#if os(macOS)
+public struct MonacoEditor: NSViewRepresentable {
     private let actions: [MonacoEditorAction]?
     private let commands: [MonacoEditorCommand]?
-
-    init(commands: [MonacoEditorCommand]?, actions: [MonacoEditorAction]?) {
-      self.commands = commands
-      self.actions = actions
+    private let contentChanged: ((String) -> Void)?
+    private let scriptMessageHandlers: [MonacoEditorScriptMessageHandler]?
+    public let isReflushFun: () -> Bool
+    public let editorView: MonacoEditorView
+    
+    @ObservedObject private var configuration: MonacoEditorConfiguration
+    @Binding private var text: String
+    
+    public init(
+        text: Binding<String>,
+        configuration: MonacoEditorConfiguration,
+        commands: [MonacoEditorCommand]? = nil,
+        actions: [MonacoEditorAction]? = nil,
+        scriptMessageHandlers: [MonacoEditorScriptMessageHandler]? = nil,
+        navigationHandlerFun: ((WKWebView) -> WKNavigationDelegate)? = nil,
+        otherMessageHandlerFun: ((WKWebView) -> WKScriptMessageHandler)? = nil,
+        contentChanged: ((String) -> Void)? = nil,
+        isReflushFun: @escaping () -> Bool = { return false }
+    ) {
+        self._text = text
+        self.configuration = configuration
+        self.contentChanged = contentChanged
+        self.commands = commands
+        self.actions = actions
+        self.scriptMessageHandlers = scriptMessageHandlers
+        self.isReflushFun = isReflushFun
+        self.editorView = MonacoEditorView(
+            frame: NSRect.zero,
+            text: text.wrappedValue,
+            configuration: configuration,
+            scriptMessageHandlers: scriptMessageHandlers,
+            navigationHandlerFun: navigationHandlerFun,
+            otherMessageHandlerFun: otherMessageHandlerFun
+        )
+        self.editorView.contentChanged = contentChanged
+    }
+    
+    public func makeCoordinator() -> Coordinator {
+        let coordinator = Coordinator(commands: commands, actions: actions)
+        return coordinator
     }
 
-    func configureEditor(editor: MonacoEditorView) {
-      if let commands = self.commands {
-        for command in commands {
-          editor.addCommand(command)
+    public func makeNSView(context: Context) -> MonacoEditorView {
+        self.editorView.ready = context.coordinator.configureEditor
+        if self.editorView.text != self.text && self.isReflushFun() {
+            self.editorView.text = self.text
         }
-      }
-
-      if let actions = self.actions {
-        for action in actions {
-          editor.addAction(action)
+        self.editorView.contentChanged = self.contentChanged
+        if self.editorView.firstLoadView {
+            self.editorView.loadEditor()
+            self.editorView.firstLoadView = false
         }
-      }
+        return self.editorView
     }
-  }
+
+    public func updateNSView(_ view: MonacoEditorView, context: Context) {
+        view.updateConfiguration()
+    }
 }
 
-struct SwiftUIView_Previews: PreviewProvider {
-  static var configuration = MonacoEditorConfiguration(language: "markdown")
-  @State static var text = ""
+#else
 
-  static var previews: some View {
-    MonacoEditor(text: $text, configuration: configuration)
-  }
+public struct MonacoEditor: UIViewRepresentable {
+    private let actions: [MonacoEditorAction]?
+    private let commands: [MonacoEditorCommand]?
+    private let contentChanged: ((String) -> Void)?
+    private let scriptMessageHandlers: [MonacoEditorScriptMessageHandler]?
+    public let isReflushFun: () -> Bool
+    public let editorView: MonacoEditorView
+    
+    @ObservedObject private var configuration: MonacoEditorConfiguration
+    @Binding private var text: String
+    
+    public init(
+        text: Binding<String>,
+        configuration: MonacoEditorConfiguration,
+        commands: [MonacoEditorCommand]? = nil,
+        actions: [MonacoEditorAction]? = nil,
+        scriptMessageHandlers: [MonacoEditorScriptMessageHandler]? = nil,
+        navigationHandlerFun: ((WKWebView) -> WKNavigationDelegate)? = nil,
+        otherMessageHandlerFun: ((WKWebView) -> WKScriptMessageHandler)? = nil,
+        contentChanged: ((String) -> Void)? = nil,
+        isReflushFun: @escaping () -> Bool = { return false }
+    ) {
+        self._text = text
+        self.configuration = configuration
+        self.contentChanged = contentChanged
+        self.commands = commands
+        self.actions = actions
+        self.scriptMessageHandlers = scriptMessageHandlers
+        self.isReflushFun = isReflushFun
+        self.editorView = MonacoEditorView(
+            frame: CGRect.zero,
+            text: text.wrappedValue,
+            configuration: configuration,
+            scriptMessageHandlers: scriptMessageHandlers,
+            navigationHandlerFun: navigationHandlerFun,
+            otherMessageHandlerFun: otherMessageHandlerFun
+        )
+        self.editorView.contentChanged = contentChanged
+    }
+    
+    public func makeCoordinator() -> Coordinator {
+        let coordinator = Coordinator(commands: commands, actions: actions)
+        return coordinator
+    }
+
+    public func makeUIView(context: Context) -> MonacoEditorView {
+        self.editorView.ready = context.coordinator.configureEditor
+        if self.editorView.text != self.text && self.isReflushFun() {
+            self.editorView.text = self.text
+        }
+        self.editorView.contentChanged = self.contentChanged
+        if self.editorView.firstLoadView {
+            self.editorView.loadEditor()
+            self.editorView.firstLoadView = false
+        }
+        return self.editorView
+    }
+
+    public func updateUIView(_ view: MonacoEditorView, context: Context) {
+        view.updateConfiguration()
+    }
+}
+
+#endif
+
+extension MonacoEditor {
+    public final class Coordinator {
+        private let actions: [MonacoEditorAction]?
+        private let commands: [MonacoEditorCommand]?
+        
+        init(commands: [MonacoEditorCommand]?, actions: [MonacoEditorAction]?) {
+            self.commands = commands
+            self.actions = actions
+        }
+        
+        func configureEditor(editor: MonacoEditorView) {
+            if let commands = self.commands {
+                for command in commands {
+                    editor.addCommand(command)
+                }
+            }
+            
+            if let actions = self.actions {
+                for action in actions {
+                    editor.addAction(action)
+                }
+            }
+        }
+    }
 }

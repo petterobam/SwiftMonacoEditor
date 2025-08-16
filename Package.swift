@@ -36,16 +36,14 @@ let package = Package(
     ),
   ],
   dependencies: [
-    .package(
-      name: "Gzip",
-      url: "https://github.com/1024jp/GzipSwift.git",
-      .upToNextMajor(from: "5.1.1")
-    )
+    .package(path: "../../Base/GzipSwift"),
   ],
   targets: [
     .target(
       name: "MonacoEditor",
-      dependencies: ["Gzip"],
+      dependencies: [
+        .product(name: "Gzip", package: "GzipSwift"),
+      ],
       resources: [
         .copy("Editor")
       ]
